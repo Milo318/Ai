@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Front Lever Coach</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Front Lever Programm</p>
+          <h1>Lerne den Front Lever mit Plan, Fortschritt & KI-Coach.</h1>
+          <p class="lead">
+            Tracke deine Holds, messe Fortschritte, erreiche Meilensteine und hole dir
+            personalisierte Tipps über den integrierten AI-Coach.
+          </p>
+          <div class="hero-actions">
+            <button class="primary" id="start-today">Heute starten</button>
+            <button class="ghost" id="scroll-coach">Coach fragen</button>
+          </div>
+        </div>
+        <div class="hero-card">
+          <h2>Dein Fortschritt heute</h2>
+          <div class="stat">
+            <span>Aktueller Score</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="stat">
+            <span>Letzter Hold</span>
+            <strong id="last-hold">-</strong>
+          </div>
+          <div class="stat">
+            <span>Serie</span>
+            <strong id="streak">0 Tage</strong>
+          </div>
+          <div class="progress-bar">
+            <div id="progress-fill"></div>
+          </div>
+          <p class="progress-label" id="progress-label">0% zum nächsten Meilenstein</p>
+        </div>
+      </header>
+
+      <main>
+        <section class="panel" id="progress">
+          <div class="panel-header">
+            <h2>Fortschritt messen</h2>
+            <p>Trage nach jedem Training deine Holds ein.</p>
+          </div>
+          <form id="progress-form">
+            <label>
+              Übungsvariante
+              <select id="variation">
+                <option value="tuck">Tuck</option>
+                <option value="advanced-tuck">Advanced Tuck</option>
+                <option value="one-leg">One-Leg</option>
+                <option value="straddle">Straddle</option>
+                <option value="full">Full Front Lever</option>
+              </select>
+            </label>
+            <label>
+              Hold-Zeit (Sekunden)
+              <input type="number" id="hold-time" min="1" max="60" placeholder="z.B. 12" required />
+            </label>
+            <label>
+              Sätze
+              <input type="number" id="sets" min="1" max="10" value="3" required />
+            </label>
+            <label>
+              RPE (Anstrengung 1-10)
+              <input type="number" id="rpe" min="1" max="10" value="7" required />
+            </label>
+            <button class="primary" type="submit">Training speichern</button>
+          </form>
+          <div class="history">
+            <h3>Letzte Einträge</h3>
+            <ul id="history-list"></ul>
+          </div>
+        </section>
+
+        <section class="panel" id="milestones">
+          <div class="panel-header">
+            <h2>Progress-Meilensteine</h2>
+            <p>Arbeite dich Schritt für Schritt zum vollständigen Front Lever.</p>
+          </div>
+          <div class="milestone-grid" id="milestone-grid"></div>
+        </section>
+
+        <section class="panel" id="tips">
+          <div class="panel-header">
+            <h2>Tipps & Fokus</h2>
+            <p>Kleine Details sorgen für große Fortschritte.</p>
+          </div>
+          <div class="tips-grid">
+            <article>
+              <h3>Scapula Kontrolle</h3>
+              <p>Halte die Schulterblätter depressiert und leicht proträhiert. Das schützt die Schultern.</p>
+            </article>
+            <article>
+              <h3>Core-Spannung</h3>
+              <p>Spanne Bauch und Gesäß aktiv an, um die Hüfte auf Linie zu halten.</p>
+            </article>
+            <article>
+              <h3>Volumen steuern</h3>
+              <p>3-5 Sätze mit sauberer Technik sind besser als lange, wackelige Holds.</p>
+            </article>
+            <article>
+              <h3>Assistance</h3>
+              <p>Ergänze mit Rows, Hollow Holds und Dead Hangs für Stabilität.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel" id="coach">
+          <div class="panel-header">
+            <h2>AI Coach (Groq)</h2>
+            <p>Erhalte präzise Trainingsvorschläge, angepasst an deine Daten und Ziele.</p>
+          </div>
+          <div class="coach-grid">
+            <div class="coach-config" id="coach-config">
+              <label>
+                Groq API Key
+                <input type="password" id="api-key" placeholder="gsk_..." />
+              </label>
+              <button class="ghost" id="save-config">Konfiguration speichern</button>
+              <p class="muted">
+                Dein Key bleibt lokal gespeichert. Ohne Key nutzt die App einen eingebauten Beispiel-Coach.
+              </p>
+            </div>
+            <div class="coach-chat">
+              <div class="chat-log" id="chat-log"></div>
+              <form id="coach-form">
+                <input type="text" id="coach-input" placeholder="Frag den Coach nach deinem nächsten Schritt..." required />
+                <button class="primary" type="submit">Senden</button>
+              </form>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal" id="api-modal" aria-hidden="true">
+      <div class="modal-card">
+        <h2>Verbinde deinen Groq Coach</h2>
+        <p class="muted">Bitte gib deinen Groq API Key ein, damit der Coach personalisiert antworten kann.</p>
+        <form id="api-key-form">
+          <input type="password" id="api-key-modal" placeholder="gsk_..." required />
+          <button class="primary" type="submit">Key speichern</button>
+        </form>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
