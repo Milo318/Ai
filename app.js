@@ -9,6 +9,7 @@ const milestoneGrid = document.getElementById("milestone-grid");
 const chatLog = document.getElementById("chat-log");
 const coachForm = document.getElementById("coach-form");
 const coachInput = document.getElementById("coach-input");
+const apiUrlInput = document.getElementById("api-url");
 const apiKeyInput = document.getElementById("api-key");
 
 const STORAGE_KEY = "front-lever-progress";
@@ -62,6 +63,7 @@ const scoreWeights = {
 const state = {
   sessions: [],
   config: {
+    apiUrl: "",
     apiKey: "",
   },
 };
@@ -77,6 +79,7 @@ function loadState() {
   if (config) {
     state.config = JSON.parse(config);
   }
+  apiUrlInput.value = state.config.apiUrl || "";
   apiKeyInput.value = state.config.apiKey || "";
 }
 
@@ -85,6 +88,7 @@ function saveState() {
 }
 
 function saveConfig() {
+  state.config.apiUrl = apiUrlInput.value.trim();
   state.config.apiKey = apiKeyInput.value.trim();
   localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
 }
@@ -210,6 +214,22 @@ async function fetchCoachAdvice(message) {
       ],
       temperature: 0.6,
     }),
+  if (!state.config.apiUrl) {
+    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
+  }
+
+  const payload = {
+    message,
+    sessions: state.sessions.slice(0, 6),
+  };
+
+  const response = await fetch(state.config.apiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(state.config.apiKey ? { Authorization: `Bearer ${state.config.apiKey}` } : {}),
+    },
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -253,6 +273,7 @@ async function requestCoachUpdate(reason) {
   } catch (error) {
     pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
   }
+  return data.reply || "Der Coach hat keine Antwort geliefert.";
 }
 
 form.addEventListener("submit", (event) => {
