@@ -14,6 +14,8 @@ const apiKeyModal = document.getElementById("api-key-modal");
 const apiKeyForm = document.getElementById("api-key-form");
 const apiModal = document.getElementById("api-modal");
 const coachConfig = document.getElementById("coach-config");
+const apiUrlInput = document.getElementById("api-url");
+const apiKeyInput = document.getElementById("api-key");
 
 const STORAGE_KEY = "front-lever-progress";
 const CONFIG_KEY = "front-lever-config";
@@ -66,6 +68,7 @@ const scoreWeights = {
 const state = {
   sessions: [],
   config: {
+    apiUrl: "",
     apiKey: "",
   },
 };
@@ -85,6 +88,8 @@ function loadState() {
   if (apiKeyModal) {
     apiKeyModal.value = "";
   }
+  apiUrlInput.value = state.config.apiUrl || "";
+  apiKeyInput.value = state.config.apiKey || "";
 }
 
 function saveState() {
@@ -107,6 +112,10 @@ function saveApiKey(value) {
   apiKeyInput.value = state.config.apiKey;
   localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
   setConfigVisibility();
+function saveConfig() {
+  state.config.apiUrl = apiUrlInput.value.trim();
+  state.config.apiKey = apiKeyInput.value.trim();
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
 }
 
 function calculateScore(session) {
@@ -230,6 +239,22 @@ async function fetchCoachAdvice(message) {
       ],
       temperature: 0.6,
     }),
+  if (!state.config.apiUrl) {
+    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
+  }
+
+  const payload = {
+    message,
+    sessions: state.sessions.slice(0, 6),
+  };
+
+  const response = await fetch(state.config.apiUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(state.config.apiKey ? { Authorization: `Bearer ${state.config.apiKey}` } : {}),
+    },
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
@@ -312,11 +337,48 @@ if (coachForm) {
     }
   });
 }
+  return data.reply || "Der Coach hat keine Antwort geliefert.";
+}
+
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const variation = document.getElementById("variation").value;
+  const holdTime = Number(document.getElementById("hold-time").value);
+  const sets = Number(document.getElementById("sets").value);
+  const rpe = Number(document.getElementById("rpe").value);
+
+  const session = {
+    variation,
+    holdTime,
+    sets,
+    rpe,
+    date: new Date().toISOString().split("T")[0],
+  };
+
+  addSession(session);
+  form.reset();
+});
+
+coachForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const message = coachInput.value.trim();
+  if (!message) return;
+  pushMessage(message, "user");
+  coachInput.value = "";
+
+  try {
+    const reply = await fetchCoachAdvice(message);
+    pushMessage(reply, "coach");
+  } catch (error) {
+    pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
+  }
+});
 
 const saveConfigButton = document.getElementById("save-config");
 if (saveConfigButton) {
   saveConfigButton.addEventListener("click", () => {
     saveApiKey(apiKeyInput.value);
+    saveConfig();
     pushMessage("Konfiguration gespeichert. Frag den Coach nach deinem nächsten Schritt!", "coach");
     requestCoachUpdate("Neue Konfiguration gespeichert. Bitte erstelle eine individuelle Startanalyse.");
   });
