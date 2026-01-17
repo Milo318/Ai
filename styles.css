@@ -342,6 +342,19 @@ select {
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
+.status {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+  min-height: 1.2rem;
+}
+
+.status.is-loading {
+  color: var(--primary);
+}
+
+.status.is-error {
+  color: #dc2626;
 .modal {
   position: fixed;
   inset: 0;

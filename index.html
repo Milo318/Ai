@@ -119,6 +119,18 @@
           </div>
           <div class="coach-grid">
             <div class="coach-config" id="coach-config">
+              <label>
+                API Base URL
+                <input type="url" id="api-base" placeholder="https://dein-projekt.vercel.app" />
+              </label>
+              <button class="ghost" id="save-config">Konfiguration speichern</button>
+              <p class="muted">
+                Die App spricht nur dein Vercel-Backend an. Keine Secrets im Browser.
+              </p>
+            </div>
+            <div class="coach-chat">
+              <div class="chat-log" id="chat-log"></div>
+              <p class="status" id="coach-status" role="status" aria-live="polite"></p>
             <h2>AI Coach</h2>
             <p>Erhalte Feedback, Trainingsvorschläge und nächste Schritte.</p>
           </div>

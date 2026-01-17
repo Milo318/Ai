@@ -9,6 +9,12 @@ const milestoneGrid = document.getElementById("milestone-grid");
 const chatLog = document.getElementById("chat-log");
 const coachForm = document.getElementById("coach-form");
 const coachInput = document.getElementById("coach-input");
+const apiBaseInput = document.getElementById("api-base");
+const coachStatus = document.getElementById("coach-status");
+
+const STORAGE_KEY = "front-lever-progress";
+const CONFIG_KEY = "front-lever-config";
+const DEFAULT_API_BASE = "https://<DEIN-VERCEL-PROJEKT>.vercel.app";
 const apiKeyInput = document.getElementById("api-key");
 const apiKeyModal = document.getElementById("api-key-modal");
 const apiKeyForm = document.getElementById("api-key-form");
@@ -68,6 +74,7 @@ const scoreWeights = {
 const state = {
   sessions: [],
   config: {
+    apiBase: DEFAULT_API_BASE,
     apiUrl: "",
     apiKey: "",
   },
@@ -84,6 +91,9 @@ function loadState() {
   if (config) {
     state.config = JSON.parse(config);
   }
+  if (apiBaseInput) {
+    apiBaseInput.value = state.config.apiBase || DEFAULT_API_BASE;
+  }
   apiKeyInput.value = state.config.apiKey || "";
   if (apiKeyModal) {
     apiKeyModal.value = "";
@@ -96,6 +106,11 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.sessions));
 }
 
+function saveApiBase(value) {
+  state.config.apiBase = value.trim() || DEFAULT_API_BASE;
+  if (apiBaseInput) {
+    apiBaseInput.value = state.config.apiBase;
+  }
 function setConfigVisibility() {
   const hasKey = Boolean(state.config.apiKey);
   if (coachConfig) {
@@ -213,6 +228,48 @@ function pushMessage(content, sender) {
   chatLog.scrollTop = chatLog.scrollHeight;
 }
 
+function setStatus(message, tone = "info") {
+  if (!coachStatus) return;
+  coachStatus.textContent = message;
+  coachStatus.classList.toggle("is-loading", tone === "loading");
+  coachStatus.classList.toggle("is-error", tone === "error");
+}
+
+function buildContext() {
+  const totalScore = calculateTotalScore();
+  const latest = state.sessions[0] || null;
+  return {
+    totalScore,
+    latest,
+    sessions: state.sessions.slice(0, 6),
+    nextMilestone:
+      milestones.find((milestone) => totalScore < milestone.requirement)?.title ||
+      milestones[milestones.length - 1].title,
+  };
+}
+
+async function fetchCoachAdvice(message) {
+  const apiBase = state.config.apiBase || DEFAULT_API_BASE;
+  if (!apiBase || apiBase.includes("<DEIN-VERCEL-PROJEKT>")) {
+    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
+  }
+
+  const response = await fetch(`${apiBase.replace(/\\/$/, "")}/api/coach`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      message,
+      context: buildContext(),
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error || "Coach API Fehler");
+  }
+  return data.reply || "Der Coach hat keine Antwort geliefert.";
 async function fetchCoachAdvice(message) {
   if (!state.config.apiKey) {
     return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
@@ -328,10 +385,19 @@ if (coachForm) {
     if (!message) return;
     pushMessage(message, "user");
     coachInput.value = "";
+    setStatus("Coach antwortet…", "loading");
 
     try {
       const reply = await fetchCoachAdvice(message);
       pushMessage(reply, "coach");
+      setStatus("Coach bereit.", "info");
+    } catch (error) {
+      console.error(error);
+      pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
+      setStatus("Fehler beim Coach-Request.", "error");
+    }
+  });
+}
     } catch (error) {
       pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
     }
@@ -377,6 +443,15 @@ coachForm.addEventListener("submit", async (event) => {
 const saveConfigButton = document.getElementById("save-config");
 if (saveConfigButton) {
   saveConfigButton.addEventListener("click", () => {
+    try {
+      saveApiBase(apiBaseInput?.value || "");
+      pushMessage("Konfiguration gespeichert. Frag den Coach nach deinem nächsten Schritt!", "coach");
+      requestCoachUpdate("Neue Konfiguration gespeichert. Bitte erstelle eine individuelle Startanalyse.");
+      setStatus("API-Konfiguration gespeichert.", "info");
+    } catch (error) {
+      console.error(error);
+      setStatus("Konnte Konfiguration nicht speichern.", "error");
+    }
     saveApiKey(apiKeyInput.value);
     saveConfig();
     pushMessage("Konfiguration gespeichert. Frag den Coach nach deinem nächsten Schritt!", "coach");
@@ -399,17 +474,40 @@ const startButton = document.getElementById("start-today");
 const scrollCoachButton = document.getElementById("scroll-coach");
 if (startButton) {
   startButton.addEventListener("click", () => {
+    try {
+      document.getElementById("progress").scrollIntoView({ behavior: "smooth" });
+    } catch (error) {
+      console.error(error);
+      setStatus("Konnte zum Fortschritt nicht springen.", "error");
+    }
     document.getElementById("progress").scrollIntoView({ behavior: "smooth" });
   });
 }
 if (scrollCoachButton) {
   scrollCoachButton.addEventListener("click", () => {
+    try {
+      document.getElementById("coach").scrollIntoView({ behavior: "smooth" });
+    } catch (error) {
+      console.error(error);
+      setStatus("Konnte zum Coach nicht springen.", "error");
+    }
     document.getElementById("coach").scrollIntoView({ behavior: "smooth" });
   });
 }
 
 loadState();
 updateUI();
+pushMessage("Hi! Ich bin dein Front-Lever-Coach. Frag mich nach deinem nächsten Schritt.", "coach");
+requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan basierend auf den verfügbaren Daten.");
+setStatus("Coach bereit.", "info");
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js").catch((error) => {
+      console.error("Service Worker Registrierung fehlgeschlagen:", error);
+    });
+  });
+}
 setConfigVisibility();
 pushMessage("Hi! Ich bin dein Front-Lever-Coach. Frag mich nach deinem nächsten Schritt.", "coach");
 requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan basierend auf den verfügbaren Daten.");
