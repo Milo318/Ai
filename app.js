@@ -14,6 +14,9 @@ const apiKeyInput = document.getElementById("api-key");
 
 const STORAGE_KEY = "front-lever-progress";
 const CONFIG_KEY = "front-lever-config";
+const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama3-70b-8192";
+const AUTO_PROMPT_COOLDOWN_MS = 45_000;
 
 const milestones = [
   {
@@ -64,6 +67,8 @@ const state = {
     apiKey: "",
   },
 };
+
+let lastAutoPromptAt = 0;
 
 function loadState() {
   const stored = localStorage.getItem(STORAGE_KEY);
@@ -166,6 +171,7 @@ function addSession(session) {
   state.sessions.unshift(session);
   saveState();
   updateUI();
+  requestCoachUpdate("Es gibt ein neues Training. Bitte aktualisiere den Plan.");
 }
 
 function updateUI() {
@@ -183,6 +189,31 @@ function pushMessage(content, sender) {
 }
 
 async function fetchCoachAdvice(message) {
+  if (!state.config.apiKey) {
+    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
+  }
+
+  const response = await fetch(GROQ_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${state.config.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "Du bist ein professioneller Front-Lever-Coach. Antworte klar, motivierend und konkret. Gib priorisierte Schritte, Load-Management und kurze Technik-Cues.",
+        },
+        {
+          role: "user",
+          content: message,
+        },
+      ],
+      temperature: 0.6,
+    }),
   if (!state.config.apiUrl) {
     return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
   }
@@ -205,6 +236,43 @@ async function fetchCoachAdvice(message) {
     throw new Error("Coach API Fehler");
   }
   const data = await response.json();
+  return data.choices?.[0]?.message?.content || "Der Coach hat keine Antwort geliefert.";
+}
+
+function buildAutoPrompt(reason) {
+  const totalScore = calculateTotalScore();
+  const latest = state.sessions[0];
+  const history = state.sessions.slice(0, 5);
+  const milestone = milestones.find((item) => totalScore < item.requirement) || milestones[milestones.length - 1];
+  const summary = history
+    .map((session) => `${session.date}: ${formatVariation(session.variation)} ${session.holdTime}s x ${session.sets} RPE ${session.rpe}`)
+    .join("; ");
+
+  return [
+    reason,
+    `Ziel: Front Lever lernen. Aktueller Score: ${totalScore}. Nächster Meilenstein: ${milestone.title}.`,
+    latest ? `Letzter Eintrag: ${formatVariation(latest.variation)} ${latest.holdTime}s x ${latest.sets} (RPE ${latest.rpe}).` : "Noch keine Einträge.",
+    `Historie (letzte 5): ${summary || "keine"}.`,
+    "Bitte gib: 1) nächste Trainingseinheit, 2) Technik-Fokus, 3) Progressionsschritt, 4) Recovery-Tipp.",
+  ].join("\n");
+}
+
+async function requestCoachUpdate(reason) {
+  const now = Date.now();
+  if (!state.config.apiKey) {
+    return;
+  }
+  if (now - lastAutoPromptAt < AUTO_PROMPT_COOLDOWN_MS) {
+    return;
+  }
+  lastAutoPromptAt = now;
+  const prompt = buildAutoPrompt(reason);
+  try {
+    const reply = await fetchCoachAdvice(prompt);
+    pushMessage(reply, "coach");
+  } catch (error) {
+    pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
+  }
   return data.reply || "Der Coach hat keine Antwort geliefert.";
 }
 
@@ -247,6 +315,7 @@ if (saveConfigButton) {
   saveConfigButton.addEventListener("click", () => {
     saveConfig();
     pushMessage("Konfiguration gespeichert. Frag den Coach nach deinem nächsten Schritt!", "coach");
+    requestCoachUpdate("Neue Konfiguration gespeichert. Bitte erstelle eine individuelle Startanalyse.");
   });
 }
 
@@ -266,3 +335,4 @@ if (scrollCoachButton) {
 loadState();
 updateUI();
 pushMessage("Hi! Ich bin dein Front-Lever-Coach. Frag mich nach deinem nächsten Schritt.", "coach");
+requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan basierend auf den verfügbaren Daten.");
