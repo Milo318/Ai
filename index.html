@@ -116,6 +116,9 @@
           <div class="panel-header">
             <h2>AI Coach (Groq)</h2>
             <p>Erhalte präzise Trainingsvorschläge, angepasst an deine Daten und Ziele.</p>
+          </div>
+          <div class="coach-grid">
+            <div class="coach-config" id="coach-config">
             <h2>AI Coach</h2>
             <p>Erhalte Feedback, Trainingsvorschläge und nächste Schritte.</p>
           </div>
@@ -149,6 +152,17 @@
           </div>
         </section>
       </main>
+    </div>
+
+    <div class="modal" id="api-modal" aria-hidden="true">
+      <div class="modal-card">
+        <h2>Verbinde deinen Groq Coach</h2>
+        <p class="muted">Bitte gib deinen Groq API Key ein, damit der Coach personalisiert antworten kann.</p>
+        <form id="api-key-form">
+          <input type="password" id="api-key-modal" placeholder="gsk_..." required />
+          <button class="primary" type="submit">Key speichern</button>
+        </form>
+      </div>
     </div>
 
     <script src="app.js"></script>

@@ -9,6 +9,11 @@ const milestoneGrid = document.getElementById("milestone-grid");
 const chatLog = document.getElementById("chat-log");
 const coachForm = document.getElementById("coach-form");
 const coachInput = document.getElementById("coach-input");
+const apiKeyInput = document.getElementById("api-key");
+const apiKeyModal = document.getElementById("api-key-modal");
+const apiKeyForm = document.getElementById("api-key-form");
+const apiModal = document.getElementById("api-modal");
+const coachConfig = document.getElementById("coach-config");
 const apiUrlInput = document.getElementById("api-url");
 const apiKeyInput = document.getElementById("api-key");
 
@@ -79,6 +84,10 @@ function loadState() {
   if (config) {
     state.config = JSON.parse(config);
   }
+  apiKeyInput.value = state.config.apiKey || "";
+  if (apiKeyModal) {
+    apiKeyModal.value = "";
+  }
   apiUrlInput.value = state.config.apiUrl || "";
   apiKeyInput.value = state.config.apiKey || "";
 }
@@ -87,6 +96,22 @@ function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.sessions));
 }
 
+function setConfigVisibility() {
+  const hasKey = Boolean(state.config.apiKey);
+  if (coachConfig) {
+    coachConfig.classList.toggle("is-hidden", hasKey);
+  }
+  if (apiModal) {
+    apiModal.classList.toggle("is-visible", !hasKey);
+    apiModal.setAttribute("aria-hidden", hasKey ? "true" : "false");
+  }
+}
+
+function saveApiKey(value) {
+  state.config.apiKey = value.trim();
+  apiKeyInput.value = state.config.apiKey;
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
+  setConfigVisibility();
 function saveConfig() {
   state.config.apiUrl = apiUrlInput.value.trim();
   state.config.apiKey = apiKeyInput.value.trim();
@@ -273,6 +298,45 @@ async function requestCoachUpdate(reason) {
   } catch (error) {
     pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
   }
+}
+
+if (form) {
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const variation = document.getElementById("variation").value;
+    const holdTime = Number(document.getElementById("hold-time").value);
+    const sets = Number(document.getElementById("sets").value);
+    const rpe = Number(document.getElementById("rpe").value);
+
+    const session = {
+      variation,
+      holdTime,
+      sets,
+      rpe,
+      date: new Date().toISOString().split("T")[0],
+    };
+
+    addSession(session);
+    form.reset();
+  });
+}
+
+if (coachForm) {
+  coachForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = coachInput.value.trim();
+    if (!message) return;
+    pushMessage(message, "user");
+    coachInput.value = "";
+
+    try {
+      const reply = await fetchCoachAdvice(message);
+      pushMessage(reply, "coach");
+    } catch (error) {
+      pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
+    }
+  });
+}
   return data.reply || "Der Coach hat keine Antwort geliefert.";
 }
 
@@ -313,9 +377,21 @@ coachForm.addEventListener("submit", async (event) => {
 const saveConfigButton = document.getElementById("save-config");
 if (saveConfigButton) {
   saveConfigButton.addEventListener("click", () => {
+    saveApiKey(apiKeyInput.value);
     saveConfig();
     pushMessage("Konfiguration gespeichert. Frag den Coach nach deinem nächsten Schritt!", "coach");
     requestCoachUpdate("Neue Konfiguration gespeichert. Bitte erstelle eine individuelle Startanalyse.");
+  });
+}
+
+if (apiKeyForm) {
+  apiKeyForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (!apiKeyModal.value.trim()) return;
+    saveApiKey(apiKeyModal.value);
+    apiKeyModal.value = "";
+    pushMessage("Super! Dein Groq Coach ist jetzt verbunden.", "coach");
+    requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan.");
   });
 }
 
@@ -334,5 +410,6 @@ if (scrollCoachButton) {
 
 loadState();
 updateUI();
+setConfigVisibility();
 pushMessage("Hi! Ich bin dein Front-Lever-Coach. Frag mich nach deinem nächsten Schritt.", "coach");
 requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan basierend auf den verfügbaren Daten.");
