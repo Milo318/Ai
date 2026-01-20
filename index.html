@@ -43,6 +43,16 @@
       </header>
 
       <main>
+        <section class="panel" id="daily-challenge">
+          <div class="panel-header">
+            <h2>Daily Challenge 🔥</h2>
+            <p>Deine tägliche Mini-Herausforderung für mehr Core-Power.</p>
+          </div>
+          <div class="challenge-card" id="challenge-content">
+            <!-- Wird per JS gefüllt -->
+          </div>
+        </section>
+
         <section class="panel" id="progress">
           <div class="panel-header">
             <h2>Fortschritt messen</h2>
@@ -120,42 +130,21 @@
           <div class="coach-grid">
             <div class="coach-config" id="coach-config">
               <label>
-                API Base URL
+                API Base URL (Vercel Backend)
                 <input type="url" id="api-base" placeholder="https://dein-projekt.vercel.app" />
+              </label>
+              <label>
+                Oder: Groq API Key (Lokal)
+                <input type="password" id="api-key" placeholder="gsk_..." />
               </label>
               <button class="ghost" id="save-config">Konfiguration speichern</button>
               <p class="muted">
-                Die App spricht nur dein Vercel-Backend an. Keine Secrets im Browser.
+                Nutzt Backend oder lokalen Key. Key wird nur im Browser gespeichert.
               </p>
             </div>
             <div class="coach-chat">
               <div class="chat-log" id="chat-log"></div>
               <p class="status" id="coach-status" role="status" aria-live="polite"></p>
-            <h2>AI Coach</h2>
-            <p>Erhalte Feedback, Trainingsvorschläge und nächste Schritte.</p>
-          </div>
-          <div class="coach-grid">
-            <div class="coach-config">
-              <label>
-                Groq API Key
-                <input type="password" id="api-key" placeholder="gsk_..." />
-              </label>
-              <button class="ghost" id="save-config">Konfiguration speichern</button>
-              <p class="muted">
-                Dein Key bleibt lokal gespeichert. Ohne Key nutzt die App einen eingebauten Beispiel-Coach.
-              </p>
-                API URL
-                <input type="url" id="api-url" placeholder="https://api.dein-coach.com/v1/advice" />
-              </label>
-              <label>
-                API Key (optional)
-                <input type="password" id="api-key" placeholder="sk-..." />
-              </label>
-              <button class="ghost" id="save-config">Konfiguration speichern</button>
-              <p class="muted">Ohne API nutzt die App einen eingebauten Beispiel-Coach.</p>
-            </div>
-            <div class="coach-chat">
-              <div class="chat-log" id="chat-log"></div>
               <form id="coach-form">
                 <input type="text" id="coach-input" placeholder="Frag den Coach nach deinem nächsten Schritt..." required />
                 <button class="primary" type="submit">Senden</button>
