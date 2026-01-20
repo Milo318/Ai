@@ -9,22 +9,17 @@ const milestoneGrid = document.getElementById("milestone-grid");
 const chatLog = document.getElementById("chat-log");
 const coachForm = document.getElementById("coach-form");
 const coachInput = document.getElementById("coach-input");
-const apiBaseInput = document.getElementById("api-base");
 const coachStatus = document.getElementById("coach-status");
+
+// Config elements
+const apiBaseInput = document.getElementById("api-base");
+const apiKeyInput = document.getElementById("api-key");
+const saveConfigButton = document.getElementById("save-config");
 
 const STORAGE_KEY = "front-lever-progress";
 const CONFIG_KEY = "front-lever-config";
 const DEFAULT_API_BASE = "https://<DEIN-VERCEL-PROJEKT>.vercel.app";
-const apiKeyInput = document.getElementById("api-key");
-const apiKeyModal = document.getElementById("api-key-modal");
-const apiKeyForm = document.getElementById("api-key-form");
-const apiModal = document.getElementById("api-modal");
-const coachConfig = document.getElementById("coach-config");
-const apiUrlInput = document.getElementById("api-url");
-const apiKeyInput = document.getElementById("api-key");
 
-const STORAGE_KEY = "front-lever-progress";
-const CONFIG_KEY = "front-lever-config";
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama3-70b-8192";
 const AUTO_PROMPT_COOLDOWN_MS = 45_000;
@@ -74,8 +69,7 @@ const scoreWeights = {
 const state = {
   sessions: [],
   config: {
-    apiBase: DEFAULT_API_BASE,
-    apiUrl: "",
+    apiBase: "",
     apiKey: "",
   },
 };
@@ -85,50 +79,37 @@ let lastAutoPromptAt = 0;
 function loadState() {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored) {
-    state.sessions = JSON.parse(stored);
+    try {
+      state.sessions = JSON.parse(stored);
+    } catch (e) {
+      console.error("Failed to parse sessions", e);
+    }
   }
+
   const config = localStorage.getItem(CONFIG_KEY);
   if (config) {
-    state.config = JSON.parse(config);
+    try {
+      state.config = JSON.parse(config);
+    } catch (e) {
+      console.error("Failed to parse config", e);
+    }
   }
+
+  // Populate UI
   if (apiBaseInput) {
-    apiBaseInput.value = state.config.apiBase || DEFAULT_API_BASE;
+    apiBaseInput.value = state.config.apiBase || "";
   }
-  apiKeyInput.value = state.config.apiKey || "";
-  if (apiKeyModal) {
-    apiKeyModal.value = "";
+  if (apiKeyInput) {
+    apiKeyInput.value = state.config.apiKey || "";
   }
-  apiUrlInput.value = state.config.apiUrl || "";
-  apiKeyInput.value = state.config.apiKey || "";
 }
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.sessions));
 }
 
-function saveApiBase(value) {
-  state.config.apiBase = value.trim() || DEFAULT_API_BASE;
-  if (apiBaseInput) {
-    apiBaseInput.value = state.config.apiBase;
-  }
-function setConfigVisibility() {
-  const hasKey = Boolean(state.config.apiKey);
-  if (coachConfig) {
-    coachConfig.classList.toggle("is-hidden", hasKey);
-  }
-  if (apiModal) {
-    apiModal.classList.toggle("is-visible", !hasKey);
-    apiModal.setAttribute("aria-hidden", hasKey ? "true" : "false");
-  }
-}
-
-function saveApiKey(value) {
-  state.config.apiKey = value.trim();
-  apiKeyInput.value = state.config.apiKey;
-  localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
-  setConfigVisibility();
 function saveConfig() {
-  state.config.apiUrl = apiUrlInput.value.trim();
+  state.config.apiBase = apiBaseInput.value.trim();
   state.config.apiKey = apiKeyInput.value.trim();
   localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
 }
@@ -249,76 +230,65 @@ function buildContext() {
 }
 
 async function fetchCoachAdvice(message) {
-  const apiBase = state.config.apiBase || DEFAULT_API_BASE;
-  if (!apiBase || apiBase.includes("<DEIN-VERCEL-PROJEKT>")) {
-    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
+  const apiBase = state.config.apiBase;
+  const apiKey = state.config.apiKey;
+
+  // 1. Try Backend Proxy if configured
+  if (apiBase && !apiBase.includes("<DEIN-VERCEL-PROJEKT>")) {
+    const response = await fetch(`${apiBase.replace(/\/$/, "")}/api/coach`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        message,
+        context: buildContext(),
+      }),
+    });
+
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || "Coach API Fehler (Backend)");
+    }
+    const data = await response.json();
+    return data.reply || "Der Coach hat keine Antwort geliefert.";
   }
 
-  const response = await fetch(`${apiBase.replace(/\\/$/, "")}/api/coach`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      message,
-      context: buildContext(),
-    }),
-  });
+  // 2. Try Direct Groq if API Key is configured
+  if (apiKey) {
+      const prompt = [
+          "Du bist ein professioneller Front-Lever-Coach.",
+          "Antworte klar, motivierend und konkret.",
+          "Gib priorisierte Schritte, Load-Management und kurze Technik-Cues.",
+          `Kontext: ${JSON.stringify(buildContext())}`,
+      ].join(" ");
 
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error || "Coach API Fehler");
-  }
-  return data.reply || "Der Coach hat keine Antwort geliefert.";
-async function fetchCoachAdvice(message) {
-  if (!state.config.apiKey) {
-    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
-  }
-
-  const response = await fetch(GROQ_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${state.config.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Du bist ein professioneller Front-Lever-Coach. Antworte klar, motivierend und konkret. Gib priorisierte Schritte, Load-Management und kurze Technik-Cues.",
+      const response = await fetch(GROQ_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
         },
-        {
-          role: "user",
-          content: message,
-        },
-      ],
-      temperature: 0.6,
-    }),
-  if (!state.config.apiUrl) {
-    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+          messages: [
+            { role: "system", content: prompt },
+            { role: "user", content: message },
+          ],
+          temperature: 0.6,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error?.message || "Coach API Fehler (Groq)");
+      }
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || "Der Coach hat keine Antwort geliefert.";
   }
 
-  const payload = {
-    message,
-    sessions: state.sessions.slice(0, 6),
-  };
-
-  const response = await fetch(state.config.apiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(state.config.apiKey ? { Authorization: `Bearer ${state.config.apiKey}` } : {}),
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error("Coach API Fehler");
-  }
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "Der Coach hat keine Antwort geliefert.";
+  // 3. Fallback: Demo Mode
+  return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
 }
 
 function buildAutoPrompt(reason) {
@@ -341,9 +311,11 @@ function buildAutoPrompt(reason) {
 
 async function requestCoachUpdate(reason) {
   const now = Date.now();
-  if (!state.config.apiKey) {
+  // Only auto-update if we have a config (don't spam demo mode unless user asked)
+  if (!state.config.apiBase && !state.config.apiKey) {
     return;
   }
+
   if (now - lastAutoPromptAt < AUTO_PROMPT_COOLDOWN_MS) {
     return;
   }
@@ -353,9 +325,12 @@ async function requestCoachUpdate(reason) {
     const reply = await fetchCoachAdvice(prompt);
     pushMessage(reply, "coach");
   } catch (error) {
-    pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
+    console.warn("Auto-Update failed:", error);
+    // Silent fail for auto updates
   }
 }
+
+// Event Listeners
 
 if (form) {
   form.addEventListener("submit", (event) => {
@@ -385,7 +360,7 @@ if (coachForm) {
     if (!message) return;
     pushMessage(message, "user");
     coachInput.value = "";
-    setStatus("Coach antwortet…", "loading");
+    setStatus("Coach schreibt…", "loading");
 
     try {
       const reply = await fetchCoachAdvice(message);
@@ -393,113 +368,38 @@ if (coachForm) {
       setStatus("Coach bereit.", "info");
     } catch (error) {
       console.error(error);
-      pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
+      pushMessage(`Fehler: ${error.message}`, "coach");
       setStatus("Fehler beim Coach-Request.", "error");
     }
   });
 }
-    } catch (error) {
-      pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
-    }
-  });
-}
-  return data.reply || "Der Coach hat keine Antwort geliefert.";
-}
 
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const variation = document.getElementById("variation").value;
-  const holdTime = Number(document.getElementById("hold-time").value);
-  const sets = Number(document.getElementById("sets").value);
-  const rpe = Number(document.getElementById("rpe").value);
-
-  const session = {
-    variation,
-    holdTime,
-    sets,
-    rpe,
-    date: new Date().toISOString().split("T")[0],
-  };
-
-  addSession(session);
-  form.reset();
-});
-
-coachForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const message = coachInput.value.trim();
-  if (!message) return;
-  pushMessage(message, "user");
-  coachInput.value = "";
-
-  try {
-    const reply = await fetchCoachAdvice(message);
-    pushMessage(reply, "coach");
-  } catch (error) {
-    pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
-  }
-});
-
-const saveConfigButton = document.getElementById("save-config");
 if (saveConfigButton) {
   saveConfigButton.addEventListener("click", () => {
-    try {
-      saveApiBase(apiBaseInput?.value || "");
-      pushMessage("Konfiguration gespeichert. Frag den Coach nach deinem nächsten Schritt!", "coach");
-      requestCoachUpdate("Neue Konfiguration gespeichert. Bitte erstelle eine individuelle Startanalyse.");
-      setStatus("API-Konfiguration gespeichert.", "info");
-    } catch (error) {
-      console.error(error);
-      setStatus("Konnte Konfiguration nicht speichern.", "error");
-    }
-    saveApiKey(apiKeyInput.value);
     saveConfig();
+    setStatus("Konfiguration gespeichert.", "info");
     pushMessage("Konfiguration gespeichert. Frag den Coach nach deinem nächsten Schritt!", "coach");
-    requestCoachUpdate("Neue Konfiguration gespeichert. Bitte erstelle eine individuelle Startanalyse.");
-  });
-}
-
-if (apiKeyForm) {
-  apiKeyForm.addEventListener("submit", (event) => {
-    event.preventDefault();
-    if (!apiKeyModal.value.trim()) return;
-    saveApiKey(apiKeyModal.value);
-    apiKeyModal.value = "";
-    pushMessage("Super! Dein Groq Coach ist jetzt verbunden.", "coach");
-    requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan.");
   });
 }
 
 const startButton = document.getElementById("start-today");
 const scrollCoachButton = document.getElementById("scroll-coach");
+
 if (startButton) {
   startButton.addEventListener("click", () => {
-    try {
-      document.getElementById("progress").scrollIntoView({ behavior: "smooth" });
-    } catch (error) {
-      console.error(error);
-      setStatus("Konnte zum Fortschritt nicht springen.", "error");
-    }
     document.getElementById("progress").scrollIntoView({ behavior: "smooth" });
   });
 }
 if (scrollCoachButton) {
   scrollCoachButton.addEventListener("click", () => {
-    try {
-      document.getElementById("coach").scrollIntoView({ behavior: "smooth" });
-    } catch (error) {
-      console.error(error);
-      setStatus("Konnte zum Coach nicht springen.", "error");
-    }
     document.getElementById("coach").scrollIntoView({ behavior: "smooth" });
   });
 }
 
+// Initialization
 loadState();
 updateUI();
 pushMessage("Hi! Ich bin dein Front-Lever-Coach. Frag mich nach deinem nächsten Schritt.", "coach");
-requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan basierend auf den verfügbaren Daten.");
-setStatus("Coach bereit.", "info");
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -508,6 +408,3 @@ if ("serviceWorker" in navigator) {
     });
   });
 }
-setConfigVisibility();
-pushMessage("Hi! Ich bin dein Front-Lever-Coach. Frag mich nach deinem nächsten Schritt.", "coach");
-requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan basierend auf den verfügbaren Daten.");
