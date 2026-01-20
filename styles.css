@@ -1,15 +1,5 @@
 :root {
   color-scheme: light;
-  --bg: #f3f5fb;
-  --card: #ffffff;
-  --text: #0f172a;
-  --muted: #64748b;
-  --primary: #2563eb;
-  --primary-dark: #1d4ed8;
-  --border: #e2e8f0;
-  --accent: #f97316;
-  --surface: #f8fafc;
-  --shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
   --bg: #f5f7fb;
   --card: #ffffff;
   --text: #101828;
@@ -18,6 +8,8 @@
   --primary-dark: #1764c5;
   --border: #e4e7ec;
   --accent: #f97316;
+  --surface: #f8fafc;
+  --shadow: 0 16px 40px rgba(16, 24, 40, 0.08);
 }
 
 * {
@@ -35,7 +27,6 @@ body {
 .app {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 24px 72px;
   padding: 32px 24px 64px;
 }
 
@@ -44,7 +35,6 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 32px;
   align-items: center;
-  margin-bottom: 48px;
   margin-bottom: 40px;
 }
 
@@ -58,22 +48,16 @@ body {
 }
 
 h1 {
-  font-size: clamp(2.1rem, 2vw + 1.5rem, 3.4rem);
-  margin: 0 0 16px;
-  line-height: 1.05;
-}
-
-h1 {
   font-size: clamp(2rem, 2vw + 1.5rem, 3.2rem);
   margin: 0 0 16px;
+  line-height: 1.05;
 }
 
 .lead {
   font-size: 1.1rem;
   color: var(--muted);
-  margin-bottom: 28px;
-  max-width: 520px;
   margin-bottom: 24px;
+  max-width: 520px;
 }
 
 .hero-actions {
@@ -110,15 +94,11 @@ button.ghost {
 }
 
 .hero-card {
-  background: linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 24px;
-  padding: 24px;
-  box-shadow: var(--shadow);
-  border: 1px solid rgba(37, 99, 235, 0.12);
   background: var(--card);
   border-radius: 20px;
   padding: 24px;
-  box-shadow: 0 16px 40px rgba(16, 24, 40, 0.08);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
 }
 
 .stat {
@@ -162,13 +142,10 @@ main {
 
 .panel {
   background: var(--card);
-  border-radius: 24px;
-  padding: 24px;
-  border: 1px solid var(--border);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
   border-radius: 20px;
   padding: 24px;
   border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
 }
 
 .panel-header h2 {
@@ -219,10 +196,6 @@ select {
   border-radius: 12px;
   font-size: 0.9rem;
   border: 1px solid var(--border);
-  background: var(--bg);
-  padding: 12px 14px;
-  border-radius: 12px;
-  font-size: 0.9rem;
 }
 
 .milestone-grid {
@@ -243,15 +216,6 @@ select {
 .milestone:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 22px rgba(15, 23, 42, 0.08);
-}
-
-.milestone.completed {
-  border-color: rgba(37, 99, 235, 0.35);
-  background: rgba(37, 99, 235, 0.1);
-  border-radius: 16px;
-  padding: 16px;
-  background: var(--bg);
-  position: relative;
 }
 
 .milestone.completed {
@@ -279,9 +243,6 @@ select {
 
 .tips-grid article {
   background: var(--surface);
-  padding: 16px;
-  border-radius: 18px;
-  background: var(--bg);
   padding: 16px;
   border-radius: 16px;
   border: 1px solid var(--border);
@@ -314,7 +275,6 @@ select {
 
 .chat-log {
   background: var(--surface);
-  background: var(--bg);
   border-radius: 16px;
   padding: 16px;
   min-height: 220px;
@@ -355,6 +315,8 @@ select {
 
 .status.is-error {
   color: #dc2626;
+}
+
 .modal {
   position: fixed;
   inset: 0;
@@ -399,4 +361,23 @@ select {
   button {
     width: 100%;
   }
+}
+
+.challenge-card {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: white;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+}
+
+.challenge-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.25rem;
+}
+
+.challenge-card p {
+  margin: 0;
+  opacity: 0.9;
+  line-height: 1.5;
 }
