@@ -142,8 +142,10 @@ function calculateTotalScore() {
   return state.sessions.reduce((total, session) => total + calculateScore(session), 0);
 }
 
-function updateScoreCard() {
-  const totalScore = calculateTotalScore();
+function updateScoreCard(totalScore) {
+  if (totalScore === undefined) {
+    totalScore = calculateTotalScore();
+  }
   scoreEl.textContent = totalScore;
   const lastSession = state.sessions[0];
   lastHoldEl.textContent = lastSession
@@ -182,16 +184,21 @@ function formatVariation(value) {
 
 function renderHistory() {
   historyList.innerHTML = "";
+  const fragment = document.createDocumentFragment();
   state.sessions.slice(0, 5).forEach((session) => {
     const item = document.createElement("li");
     item.textContent = `${session.date} · ${formatVariation(session.variation)} · ${session.holdTime}s x ${session.sets} · RPE ${session.rpe}`;
-    historyList.appendChild(item);
+    fragment.appendChild(item);
   });
+  historyList.appendChild(fragment);
 }
 
-function renderMilestones() {
-  const totalScore = calculateTotalScore();
+function renderMilestones(totalScore) {
+  if (totalScore === undefined) {
+    totalScore = calculateTotalScore();
+  }
   milestoneGrid.innerHTML = "";
+  const fragment = document.createDocumentFragment();
   milestones.forEach((milestone) => {
     const card = document.createElement("div");
     card.className = "milestone";
@@ -203,8 +210,9 @@ function renderMilestones() {
       <p>${milestone.description}</p>
       <small>Benötigter Score: ${milestone.requirement}</small>
     `;
-    milestoneGrid.appendChild(card);
+    fragment.appendChild(card);
   });
+  milestoneGrid.appendChild(fragment);
 }
 
 function addSession(session) {
@@ -215,9 +223,10 @@ function addSession(session) {
 }
 
 function updateUI() {
-  updateScoreCard();
+  const totalScore = calculateTotalScore();
+  updateScoreCard(totalScore);
   renderHistory();
-  renderMilestones();
+  renderMilestones(totalScore);
 }
 
 function pushMessage(content, sender) {
