@@ -21,10 +21,10 @@ const apiKeyForm = document.getElementById("api-key-form");
 const apiModal = document.getElementById("api-modal");
 const coachConfig = document.getElementById("coach-config");
 const apiUrlInput = document.getElementById("api-url");
-const apiKeyInput = document.getElementById("api-key");
-
-const STORAGE_KEY = "front-lever-progress";
-const CONFIG_KEY = "front-lever-config";
+// apiKeyInput is already declared above
+const challengeTitle = document.getElementById("challenge-title");
+const challengeDesc = document.getElementById("challenge-desc");
+const challengeCompleteBtn = document.getElementById("challenge-complete-btn");
 const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama3-70b-8192";
 const AUTO_PROMPT_COOLDOWN_MS = 45_000;
@@ -56,6 +56,23 @@ const milestones = [
     description: "Voll gestreckt für mindestens 3 Sekunden.",
   },
 ];
+
+const challenges = [
+  { title: "Dead Hang", description: "3 sets x 30s. Focus on grip strength." },
+  { title: "Scapula Pull-ups", description: "3 sets x 8 reps. Keep arms straight." },
+  { title: "Hollow Body Hold", description: "3 sets x 45s. Press lower back to floor." },
+  { title: "Tuck Front Lever", description: "Max hold x 3 sets. Knees to chest." },
+  { title: "Negative Pull-ups", description: "3 sets x 5 reps. 5s descent." },
+  { title: "Plank", description: "Accumulate 2 minutes total time." },
+  { title: "Skin the Cat", description: "3 sets x 3 reps. Full range of motion." },
+];
+
+function getDailyChallenge() {
+  const today = new Date().toISOString().split("T")[0];
+  const seed = parseInt(today.replace(/-/g, ""), 10);
+  const index = seed % challenges.length;
+  return challenges[index];
+}
 
 const exampleCoachReplies = [
   "Fokus heute: 4x8s Advanced Tuck, RPE 7, 90s Pause.",
@@ -111,6 +128,8 @@ function saveApiBase(value) {
   if (apiBaseInput) {
     apiBaseInput.value = state.config.apiBase;
   }
+}
+
 function setConfigVisibility() {
   const hasKey = Boolean(state.config.apiKey);
   if (coachConfig) {
@@ -127,6 +146,8 @@ function saveApiKey(value) {
   apiKeyInput.value = state.config.apiKey;
   localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
   setConfigVisibility();
+}
+
 function saveConfig() {
   state.config.apiUrl = apiUrlInput.value.trim();
   state.config.apiKey = apiKeyInput.value.trim();
@@ -207,6 +228,35 @@ function renderMilestones() {
   });
 }
 
+function renderDailyChallenge() {
+  console.log("renderDailyChallenge called");
+  const challenge = getDailyChallenge();
+  console.log("Challenge:", challenge);
+  if (!challengeTitle || !challengeDesc || !challengeCompleteBtn) {
+    console.error("Missing DOM elements for daily challenge");
+    return;
+  }
+
+  challengeTitle.textContent = challenge.title;
+  challengeDesc.textContent = challenge.description;
+
+  const today = new Date().toISOString().split("T")[0];
+  const storageKey = `daily-challenge-completed-${today}`;
+  const isCompleted = localStorage.getItem(storageKey) === "true";
+
+  if (isCompleted) {
+    challengeCompleteBtn.textContent = "Erledigt! \u2714";
+    challengeCompleteBtn.disabled = true;
+    challengeCompleteBtn.style.opacity = "0.7";
+    challengeCompleteBtn.style.cursor = "default";
+  } else {
+    challengeCompleteBtn.textContent = "Challenge erledigt";
+    challengeCompleteBtn.disabled = false;
+    challengeCompleteBtn.style.opacity = "1";
+    challengeCompleteBtn.style.cursor = "pointer";
+  }
+}
+
 function addSession(session) {
   state.sessions.unshift(session);
   saveState();
@@ -218,6 +268,7 @@ function updateUI() {
   updateScoreCard();
   renderHistory();
   renderMilestones();
+  renderDailyChallenge();
 }
 
 function pushMessage(content, sender) {
@@ -249,12 +300,64 @@ function buildContext() {
 }
 
 async function fetchCoachAdvice(message) {
+  // 1. Direct Groq API if Key is present
+  if (state.config.apiKey) {
+    const response = await fetch(GROQ_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${state.config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Du bist ein professioneller Front-Lever-Coach. Antworte klar, motivierend und konkret. Gib priorisierte Schritte, Load-Management und kurze Technik-Cues.",
+          },
+          {
+            role: "user",
+            content: message,
+          },
+        ],
+        temperature: 0.6,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error("Groq API Error");
+    }
+    const data = await response.json();
+    return data.choices[0].message.content;
+  }
+
+  // 2. Custom API URL if present
+  if (state.config.apiUrl) {
+    const payload = {
+      message,
+      sessions: state.sessions.slice(0, 6),
+    };
+    const response = await fetch(state.config.apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error("Custom API Error");
+    }
+    const data = await response.json();
+    return data.reply || data.choices?.[0]?.message?.content || "Keine Antwort";
+  }
+
+  // 3. Vercel Proxy (Default)
   const apiBase = state.config.apiBase || DEFAULT_API_BASE;
   if (!apiBase || apiBase.includes("<DEIN-VERCEL-PROJEKT>")) {
     return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
   }
 
-  const response = await fetch(`${apiBase.replace(/\\/$/, "")}/api/coach`, {
+  const response = await fetch(`${apiBase.replace(/\/$/, "")}/api/coach`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -270,55 +373,6 @@ async function fetchCoachAdvice(message) {
     throw new Error(data?.error || "Coach API Fehler");
   }
   return data.reply || "Der Coach hat keine Antwort geliefert.";
-async function fetchCoachAdvice(message) {
-  if (!state.config.apiKey) {
-    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
-  }
-
-  const response = await fetch(GROQ_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${state.config.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Du bist ein professioneller Front-Lever-Coach. Antworte klar, motivierend und konkret. Gib priorisierte Schritte, Load-Management und kurze Technik-Cues.",
-        },
-        {
-          role: "user",
-          content: message,
-        },
-      ],
-      temperature: 0.6,
-    }),
-  if (!state.config.apiUrl) {
-    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
-  }
-
-  const payload = {
-    message,
-    sessions: state.sessions.slice(0, 6),
-  };
-
-  const response = await fetch(state.config.apiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(state.config.apiKey ? { Authorization: `Bearer ${state.config.apiKey}` } : {}),
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error("Coach API Fehler");
-  }
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "Der Coach hat keine Antwort geliefert.";
 }
 
 function buildAutoPrompt(reason) {
@@ -398,47 +452,16 @@ if (coachForm) {
     }
   });
 }
-    } catch (error) {
-      pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
-    }
+
+if (challengeCompleteBtn) {
+  challengeCompleteBtn.addEventListener("click", () => {
+    const today = new Date().toISOString().split("T")[0];
+    const storageKey = `daily-challenge-completed-${today}`;
+    localStorage.setItem(storageKey, "true");
+    renderDailyChallenge();
+    setStatus("Stark! Challenge erledigt.", "info");
   });
 }
-  return data.reply || "Der Coach hat keine Antwort geliefert.";
-}
-
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const variation = document.getElementById("variation").value;
-  const holdTime = Number(document.getElementById("hold-time").value);
-  const sets = Number(document.getElementById("sets").value);
-  const rpe = Number(document.getElementById("rpe").value);
-
-  const session = {
-    variation,
-    holdTime,
-    sets,
-    rpe,
-    date: new Date().toISOString().split("T")[0],
-  };
-
-  addSession(session);
-  form.reset();
-});
-
-coachForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const message = coachInput.value.trim();
-  if (!message) return;
-  pushMessage(message, "user");
-  coachInput.value = "";
-
-  try {
-    const reply = await fetchCoachAdvice(message);
-    pushMessage(reply, "coach");
-  } catch (error) {
-    pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
-  }
-});
 
 const saveConfigButton = document.getElementById("save-config");
 if (saveConfigButton) {
