@@ -131,31 +131,6 @@
             <div class="coach-chat">
               <div class="chat-log" id="chat-log"></div>
               <p class="status" id="coach-status" role="status" aria-live="polite"></p>
-            <h2>AI Coach</h2>
-            <p>Erhalte Feedback, Trainingsvorschläge und nächste Schritte.</p>
-          </div>
-          <div class="coach-grid">
-            <div class="coach-config">
-              <label>
-                Groq API Key
-                <input type="password" id="api-key" placeholder="gsk_..." />
-              </label>
-              <button class="ghost" id="save-config">Konfiguration speichern</button>
-              <p class="muted">
-                Dein Key bleibt lokal gespeichert. Ohne Key nutzt die App einen eingebauten Beispiel-Coach.
-              </p>
-                API URL
-                <input type="url" id="api-url" placeholder="https://api.dein-coach.com/v1/advice" />
-              </label>
-              <label>
-                API Key (optional)
-                <input type="password" id="api-key" placeholder="sk-..." />
-              </label>
-              <button class="ghost" id="save-config">Konfiguration speichern</button>
-              <p class="muted">Ohne API nutzt die App einen eingebauten Beispiel-Coach.</p>
-            </div>
-            <div class="coach-chat">
-              <div class="chat-log" id="chat-log"></div>
               <form id="coach-form">
                 <input type="text" id="coach-input" placeholder="Frag den Coach nach deinem nächsten Schritt..." required />
                 <button class="primary" type="submit">Senden</button>
@@ -164,17 +139,6 @@
           </div>
         </section>
       </main>
-    </div>
-
-    <div class="modal" id="api-modal" aria-hidden="true">
-      <div class="modal-card">
-        <h2>Verbinde deinen Groq Coach</h2>
-        <p class="muted">Bitte gib deinen Groq API Key ein, damit der Coach personalisiert antworten kann.</p>
-        <form id="api-key-form">
-          <input type="password" id="api-key-modal" placeholder="gsk_..." required />
-          <button class="primary" type="submit">Key speichern</button>
-        </form>
-      </div>
     </div>
 
     <script src="app.js"></script>
