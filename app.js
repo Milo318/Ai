@@ -1,3 +1,13 @@
+// Constants
+const STORAGE_KEY = "front-lever-progress";
+const CONFIG_KEY = "front-lever-config";
+const CHALLENGE_KEY = "front-lever-challenges";
+const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama3-70b-8192";
+const AUTO_PROMPT_COOLDOWN_MS = 45_000;
+const DEFAULT_API_BASE = ""; // Relative path by default
+
+// DOM Elements
 const form = document.getElementById("progress-form");
 const historyList = document.getElementById("history-list");
 const scoreEl = document.getElementById("score");
@@ -9,25 +19,23 @@ const milestoneGrid = document.getElementById("milestone-grid");
 const chatLog = document.getElementById("chat-log");
 const coachForm = document.getElementById("coach-form");
 const coachInput = document.getElementById("coach-input");
-const apiBaseInput = document.getElementById("api-base");
 const coachStatus = document.getElementById("coach-status");
+const coachConfig = document.getElementById("coach-config");
+const challengeCard = document.getElementById("challenge-card");
 
-const STORAGE_KEY = "front-lever-progress";
-const CONFIG_KEY = "front-lever-config";
-const DEFAULT_API_BASE = "https://<DEIN-VERCEL-PROJEKT>.vercel.app";
+// Config Elements
 const apiKeyInput = document.getElementById("api-key");
+const apiBaseInput = document.getElementById("api-base");
+const saveConfigButton = document.getElementById("save-config");
+
+// Modal Elements
+const apiModal = document.getElementById("api-modal");
 const apiKeyModal = document.getElementById("api-key-modal");
 const apiKeyForm = document.getElementById("api-key-form");
-const apiModal = document.getElementById("api-modal");
-const coachConfig = document.getElementById("coach-config");
-const apiUrlInput = document.getElementById("api-url");
-const apiKeyInput = document.getElementById("api-key");
 
-const STORAGE_KEY = "front-lever-progress";
-const CONFIG_KEY = "front-lever-config";
-const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama3-70b-8192";
-const AUTO_PROMPT_COOLDOWN_MS = 45_000;
+// Navigation
+const startButton = document.getElementById("start-today");
+const scrollCoachButton = document.getElementById("scroll-coach");
 
 const milestones = [
   {
@@ -57,6 +65,16 @@ const milestones = [
   },
 ];
 
+const dailyChallenges = [
+  { id: 'scapula', title: 'Scapula Shrugs', count: '3x15', desc: 'Isolierte Scapula-Bewegung im Hang.' },
+  { id: 'hollow', title: 'Hollow Body Hold', count: '3x45s', desc: 'Maximale Körperspannung am Boden.' },
+  { id: 'hang', title: 'Dead Hang', count: '3x30s', desc: 'Passives Hängen für Griffkraft und Schulteröffnung.' },
+  { id: 'rows', title: 'Bodyweight Rows', count: '4x12', desc: 'Stärke deinen oberen Rücken.' },
+  { id: 'skin', title: 'Skin the Cat', count: '3x5', desc: 'Mobilität für die Schulter (vorsichtig!).' },
+  { id: 'plank', title: 'RKC Plank', count: '3x30s', desc: 'Plank mit maximaler Spannung (Fäuste ballen, Gesäß fest).' },
+  { id: 'dragon', title: 'Dragon Flag Negatives', count: '3x5', desc: 'Langsam ablassen, Rücken gerade halten.' },
+];
+
 const exampleCoachReplies = [
   "Fokus heute: 4x8s Advanced Tuck, RPE 7, 90s Pause.",
   "Achte auf eine leichte Beckenkippung nach hinten und aktives Lat-Engagement.",
@@ -71,68 +89,74 @@ const scoreWeights = {
   full: 2.4,
 };
 
+// State
 const state = {
   sessions: [],
   config: {
     apiBase: DEFAULT_API_BASE,
-    apiUrl: "",
     apiKey: "",
   },
+  challenges: {} // Map dateString -> boolean
 };
 
 let lastAutoPromptAt = 0;
 
+// Initialization
 function loadState() {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    state.sessions = JSON.parse(stored);
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      state.sessions = JSON.parse(stored);
+    }
+    const config = localStorage.getItem(CONFIG_KEY);
+    if (config) {
+      state.config = { ...state.config, ...JSON.parse(config) };
+    }
+    const challenges = localStorage.getItem(CHALLENGE_KEY);
+    if (challenges) {
+        state.challenges = JSON.parse(challenges);
+    }
+
+    // Update inputs
+    if (apiKeyInput) apiKeyInput.value = state.config.apiKey || "";
+    if (apiBaseInput) apiBaseInput.value = state.config.apiBase || "";
+
+  } catch (e) {
+    console.error("Failed to load state", e);
   }
-  const config = localStorage.getItem(CONFIG_KEY);
-  if (config) {
-    state.config = JSON.parse(config);
-  }
-  if (apiBaseInput) {
-    apiBaseInput.value = state.config.apiBase || DEFAULT_API_BASE;
-  }
-  apiKeyInput.value = state.config.apiKey || "";
-  if (apiKeyModal) {
-    apiKeyModal.value = "";
-  }
-  apiUrlInput.value = state.config.apiUrl || "";
-  apiKeyInput.value = state.config.apiKey || "";
 }
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state.sessions));
 }
 
-function saveApiBase(value) {
-  state.config.apiBase = value.trim() || DEFAULT_API_BASE;
-  if (apiBaseInput) {
-    apiBaseInput.value = state.config.apiBase;
-  }
+function saveChallengeState() {
+    localStorage.setItem(CHALLENGE_KEY, JSON.stringify(state.challenges));
+}
+
+function saveConfig() {
+  state.config.apiKey = apiKeyInput ? apiKeyInput.value.trim() : "";
+  state.config.apiBase = apiBaseInput ? apiBaseInput.value.trim() : "";
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
+  setConfigVisibility();
+}
+
 function setConfigVisibility() {
   const hasKey = Boolean(state.config.apiKey);
   if (coachConfig) {
-    coachConfig.classList.toggle("is-hidden", hasKey);
+      // Optional: hide/show sections
   }
+
   if (apiModal) {
-    apiModal.classList.toggle("is-visible", !hasKey);
-    apiModal.setAttribute("aria-hidden", hasKey ? "true" : "false");
+    apiModal.classList.toggle("is-visible", !hasKey && state.sessions.length > 0);
+    if (hasKey) {
+        apiModal.classList.remove("is-visible");
+        apiModal.setAttribute("aria-hidden", "true");
+    }
   }
 }
 
-function saveApiKey(value) {
-  state.config.apiKey = value.trim();
-  apiKeyInput.value = state.config.apiKey;
-  localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
-  setConfigVisibility();
-function saveConfig() {
-  state.config.apiUrl = apiUrlInput.value.trim();
-  state.config.apiKey = apiKeyInput.value.trim();
-  localStorage.setItem(CONFIG_KEY, JSON.stringify(state.config));
-}
-
+// Logic
 function calculateScore(session) {
   const weight = scoreWeights[session.variation] || 1;
   return Math.round(session.holdTime * session.sets * weight);
@@ -142,6 +166,45 @@ function calculateTotalScore() {
   return state.sessions.reduce((total, session) => total + calculateScore(session), 0);
 }
 
+function calculateStreak() {
+  if (!state.sessions.length) return 0;
+  const dates = [...new Set(state.sessions.map((session) => session.date))];
+  dates.sort((a, b) => new Date(b) - new Date(a));
+
+  let streakCount = 0;
+  if (dates.length > 0) {
+      let currentDate = new Date(dates[0]);
+      while (true) {
+          const dateStr = currentDate.toISOString().split("T")[0];
+          if (dates.includes(dateStr)) {
+              streakCount++;
+              currentDate.setDate(currentDate.getDate() - 1);
+          } else {
+              break;
+          }
+      }
+  }
+  return streakCount;
+}
+
+function formatVariation(value) {
+  return value
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function getDailyChallenge(dateStr) {
+    let hash = 0;
+    for (let i = 0; i < dateStr.length; i++) {
+        hash = ((hash << 5) - hash) + dateStr.charCodeAt(i);
+        hash |= 0;
+    }
+    const index = Math.abs(hash) % dailyChallenges.length;
+    return dailyChallenges[index];
+}
+
+// UI Rendering
 function updateScoreCard() {
   const totalScore = calculateTotalScore();
   scoreEl.textContent = totalScore;
@@ -152,32 +215,22 @@ function updateScoreCard() {
   streakEl.textContent = `${calculateStreak()} Tage`;
 
   const nextMilestone = milestones.find((milestone) => totalScore < milestone.requirement) || milestones[milestones.length - 1];
-  const previousRequirement = milestones
-    .filter((milestone) => totalScore >= milestone.requirement)
-    .slice(-1)[0]?.requirement || 0;
+
+  let previousRequirement = 0;
+  for (let i = 0; i < milestones.length; i++) {
+      if (milestones[i].requirement <= totalScore) {
+          previousRequirement = milestones[i].requirement;
+      } else {
+          break;
+      }
+  }
+
   const progressRange = nextMilestone.requirement - previousRequirement || 1;
-  const progressValue = Math.min(100, ((totalScore - previousRequirement) / progressRange) * 100);
+  const currentProgress = totalScore - previousRequirement;
+  const progressValue = Math.min(100, Math.max(0, (currentProgress / progressRange) * 100));
+
   progressFill.style.width = `${progressValue}%`;
   progressLabel.textContent = `${Math.round(progressValue)}% zum nächsten Meilenstein`;
-}
-
-function calculateStreak() {
-  if (!state.sessions.length) return 0;
-  const dates = [...new Set(state.sessions.map((session) => session.date))];
-  let streak = 0;
-  let current = new Date(dates[0]);
-  while (dates.includes(current.toISOString().split("T")[0])) {
-    streak += 1;
-    current.setDate(current.getDate() - 1);
-  }
-  return streak;
-}
-
-function formatVariation(value) {
-  return value
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }
 
 function renderHistory() {
@@ -207,6 +260,48 @@ function renderMilestones() {
   });
 }
 
+function renderDailyChallenge() {
+    if (!challengeCard) return;
+
+    const today = new Date().toISOString().split("T")[0];
+    const challenge = getDailyChallenge(today);
+    const isCompleted = state.challenges[today];
+
+    challengeCard.innerHTML = `
+        <div class="challenge-header">
+            <span class="challenge-title">${challenge.title}</span>
+            <span class="challenge-meta">${challenge.count}</span>
+        </div>
+        <p>${challenge.desc}</p>
+        <button class="${isCompleted ? 'ghost' : 'primary'}" id="complete-challenge" ${isCompleted ? 'disabled' : ''}>
+            ${isCompleted ? 'Erledigt ✅' : 'Challenge erledigt'}
+        </button>
+    `;
+
+    if (isCompleted) {
+        challengeCard.classList.add("completed");
+    } else {
+        challengeCard.classList.remove("completed");
+    }
+
+    const btn = document.getElementById("complete-challenge");
+    if (btn && !isCompleted) {
+        btn.addEventListener("click", () => {
+            state.challenges[today] = true;
+            saveChallengeState();
+            renderDailyChallenge();
+            pushMessage(`Super! Tägliche Challenge "${challenge.title}" erledigt.`, "coach");
+        });
+    }
+}
+
+function updateUI() {
+  updateScoreCard();
+  renderHistory();
+  renderMilestones();
+  renderDailyChallenge();
+}
+
 function addSession(session) {
   state.sessions.unshift(session);
   saveState();
@@ -214,12 +309,7 @@ function addSession(session) {
   requestCoachUpdate("Es gibt ein neues Training. Bitte aktualisiere den Plan.");
 }
 
-function updateUI() {
-  updateScoreCard();
-  renderHistory();
-  renderMilestones();
-}
-
+// Coach Logic
 function pushMessage(content, sender) {
   const message = document.createElement("div");
   message.className = `chat-message ${sender}`;
@@ -231,8 +321,9 @@ function pushMessage(content, sender) {
 function setStatus(message, tone = "info") {
   if (!coachStatus) return;
   coachStatus.textContent = message;
-  coachStatus.classList.toggle("is-loading", tone === "loading");
-  coachStatus.classList.toggle("is-error", tone === "error");
+  coachStatus.className = "status";
+  if (tone === "loading") coachStatus.classList.add("is-loading");
+  if (tone === "error") coachStatus.classList.add("is-error");
 }
 
 function buildContext() {
@@ -249,76 +340,62 @@ function buildContext() {
 }
 
 async function fetchCoachAdvice(message) {
-  const apiBase = state.config.apiBase || DEFAULT_API_BASE;
-  if (!apiBase || apiBase.includes("<DEIN-VERCEL-PROJEKT>")) {
-    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
-  }
-
-  const response = await fetch(`${apiBase.replace(/\\/$/, "")}/api/coach`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      message,
-      context: buildContext(),
-    }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error || "Coach API Fehler");
-  }
-  return data.reply || "Der Coach hat keine Antwort geliefert.";
-async function fetchCoachAdvice(message) {
-  if (!state.config.apiKey) {
-    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
-  }
-
-  const response = await fetch(GROQ_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${state.config.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "Du bist ein professioneller Front-Lever-Coach. Antworte klar, motivierend und konkret. Gib priorisierte Schritte, Load-Management und kurze Technik-Cues.",
+  if (state.config.apiKey) {
+    const response = await fetch(GROQ_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${state.config.apiKey}`,
         },
-        {
-          role: "user",
-          content: message,
+        body: JSON.stringify({
+          model: GROQ_MODEL,
+          messages: [
+            {
+              role: "system",
+              content:
+                "Du bist ein professioneller Front-Lever-Coach. Antworte klar, motivierend und konkret. Gib priorisierte Schritte, Load-Management und kurze Technik-Cues.",
+            },
+            {
+                role: "system",
+                content: `Context: ${JSON.stringify(buildContext())}`
+            },
+            {
+              role: "user",
+              content: message,
+            },
+          ],
+          temperature: 0.6,
+        }),
+    });
+
+    if (!response.ok) throw new Error("Groq API Error");
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "Keine Antwort.";
+  }
+
+  try {
+      const baseUrl = state.config.apiBase ? state.config.apiBase.replace(/\/$/, "") : "";
+      const endpoint = baseUrl ? `${baseUrl}/api/coach` : '/api/coach';
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      ],
-      temperature: 0.6,
-    }),
-  if (!state.config.apiUrl) {
-    return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
+        body: JSON.stringify({
+          message,
+          context: buildContext(),
+        }),
+      });
+
+      if (!response.ok) throw new Error("Proxy API Error");
+      const data = await response.json();
+      return data.reply || "Keine Antwort.";
+
+  } catch (err) {
+      console.warn("Proxy failed, using example", err);
+      return exampleCoachReplies[Math.floor(Math.random() * exampleCoachReplies.length)];
   }
-
-  const payload = {
-    message,
-    sessions: state.sessions.slice(0, 6),
-  };
-
-  const response = await fetch(state.config.apiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(state.config.apiKey ? { Authorization: `Bearer ${state.config.apiKey}` } : {}),
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    throw new Error("Coach API Fehler");
-  }
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "Der Coach hat keine Antwort geliefert.";
 }
 
 function buildAutoPrompt(reason) {
@@ -341,9 +418,6 @@ function buildAutoPrompt(reason) {
 
 async function requestCoachUpdate(reason) {
   const now = Date.now();
-  if (!state.config.apiKey) {
-    return;
-  }
   if (now - lastAutoPromptAt < AUTO_PROMPT_COOLDOWN_MS) {
     return;
   }
@@ -353,10 +427,11 @@ async function requestCoachUpdate(reason) {
     const reply = await fetchCoachAdvice(prompt);
     pushMessage(reply, "coach");
   } catch (error) {
-    pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
+    console.log("Auto-coach update failed", error);
   }
 }
 
+// Event Listeners
 if (form) {
   form.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -383,9 +458,10 @@ if (coachForm) {
     event.preventDefault();
     const message = coachInput.value.trim();
     if (!message) return;
+
     pushMessage(message, "user");
     coachInput.value = "";
-    setStatus("Coach antwortet…", "loading");
+    setStatus("Coach schreibt...", "loading");
 
     try {
       const reply = await fetchCoachAdvice(message);
@@ -393,121 +469,67 @@ if (coachForm) {
       setStatus("Coach bereit.", "info");
     } catch (error) {
       console.error(error);
-      pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
-      setStatus("Fehler beim Coach-Request.", "error");
+      pushMessage("Der Coach ist gerade nicht erreichbar.", "coach");
+      setStatus("Fehler.", "error");
     }
   });
 }
-    } catch (error) {
-      pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
-    }
-  });
-}
-  return data.reply || "Der Coach hat keine Antwort geliefert.";
-}
 
-form.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const variation = document.getElementById("variation").value;
-  const holdTime = Number(document.getElementById("hold-time").value);
-  const sets = Number(document.getElementById("sets").value);
-  const rpe = Number(document.getElementById("rpe").value);
-
-  const session = {
-    variation,
-    holdTime,
-    sets,
-    rpe,
-    date: new Date().toISOString().split("T")[0],
-  };
-
-  addSession(session);
-  form.reset();
-});
-
-coachForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const message = coachInput.value.trim();
-  if (!message) return;
-  pushMessage(message, "user");
-  coachInput.value = "";
-
-  try {
-    const reply = await fetchCoachAdvice(message);
-    pushMessage(reply, "coach");
-  } catch (error) {
-    pushMessage("Der Coach ist gerade nicht erreichbar. Bitte versuche es später erneut.", "coach");
-  }
-});
-
-const saveConfigButton = document.getElementById("save-config");
 if (saveConfigButton) {
   saveConfigButton.addEventListener("click", () => {
-    try {
-      saveApiBase(apiBaseInput?.value || "");
-      pushMessage("Konfiguration gespeichert. Frag den Coach nach deinem nächsten Schritt!", "coach");
-      requestCoachUpdate("Neue Konfiguration gespeichert. Bitte erstelle eine individuelle Startanalyse.");
-      setStatus("API-Konfiguration gespeichert.", "info");
-    } catch (error) {
-      console.error(error);
-      setStatus("Konnte Konfiguration nicht speichern.", "error");
-    }
-    saveApiKey(apiKeyInput.value);
     saveConfig();
-    pushMessage("Konfiguration gespeichert. Frag den Coach nach deinem nächsten Schritt!", "coach");
-    requestCoachUpdate("Neue Konfiguration gespeichert. Bitte erstelle eine individuelle Startanalyse.");
+    pushMessage("Konfiguration gespeichert.", "coach");
+    requestCoachUpdate("Neue Konfiguration.");
+    setStatus("Gespeichert.", "info");
   });
 }
 
 if (apiKeyForm) {
   apiKeyForm.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (!apiKeyModal.value.trim()) return;
-    saveApiKey(apiKeyModal.value);
+    const val = apiKeyModal.value.trim();
+    if (!val) return;
+
+    state.config.apiKey = val;
+    saveConfig();
+
     apiKeyModal.value = "";
-    pushMessage("Super! Dein Groq Coach ist jetzt verbunden.", "coach");
-    requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan.");
+    setConfigVisibility();
+
+    pushMessage("Groq Key gespeichert. Coach ist bereit!", "coach");
+    requestCoachUpdate("Initialer Plan nach Setup.");
   });
 }
 
-const startButton = document.getElementById("start-today");
-const scrollCoachButton = document.getElementById("scroll-coach");
 if (startButton) {
   startButton.addEventListener("click", () => {
-    try {
-      document.getElementById("progress").scrollIntoView({ behavior: "smooth" });
-    } catch (error) {
-      console.error(error);
-      setStatus("Konnte zum Fortschritt nicht springen.", "error");
-    }
-    document.getElementById("progress").scrollIntoView({ behavior: "smooth" });
-  });
-}
-if (scrollCoachButton) {
-  scrollCoachButton.addEventListener("click", () => {
-    try {
-      document.getElementById("coach").scrollIntoView({ behavior: "smooth" });
-    } catch (error) {
-      console.error(error);
-      setStatus("Konnte zum Coach nicht springen.", "error");
-    }
-    document.getElementById("coach").scrollIntoView({ behavior: "smooth" });
+    const el = document.getElementById("progress");
+    if(el) el.scrollIntoView({ behavior: "smooth" });
   });
 }
 
+if (scrollCoachButton) {
+  scrollCoachButton.addEventListener("click", () => {
+    const el = document.getElementById("coach");
+    if(el) el.scrollIntoView({ behavior: "smooth" });
+  });
+}
+
+// Start
 loadState();
 updateUI();
-pushMessage("Hi! Ich bin dein Front-Lever-Coach. Frag mich nach deinem nächsten Schritt.", "coach");
-requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan basierend auf den verfügbaren Daten.");
-setStatus("Coach bereit.", "info");
+setConfigVisibility();
+
+if (state.sessions.length === 0) {
+    pushMessage("Willkommen! Ich bin dein Coach. Starte dein erstes Training oder frag mich etwas.", "coach");
+} else {
+    pushMessage("Willkommen zurück! Wie war dein letztes Training?", "coach");
+}
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./service-worker.js").catch((error) => {
-      console.error("Service Worker Registrierung fehlgeschlagen:", error);
+      console.error("Service Worker error:", error);
     });
   });
 }
-setConfigVisibility();
-pushMessage("Hi! Ich bin dein Front-Lever-Coach. Frag mich nach deinem nächsten Schritt.", "coach");
-requestCoachUpdate("Bitte starte mit einer kurzen Einstufung und einem Einstiegsplan basierend auf den verfügbaren Daten.");

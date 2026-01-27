@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  --bg: #f3f5fb;
+  --bg: #f5f7fb;
   --card: #ffffff;
   --text: #0f172a;
   --muted: #64748b;
@@ -10,14 +10,6 @@
   --accent: #f97316;
   --surface: #f8fafc;
   --shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
-  --bg: #f5f7fb;
-  --card: #ffffff;
-  --text: #101828;
-  --muted: #667085;
-  --primary: #1f7aec;
-  --primary-dark: #1764c5;
-  --border: #e4e7ec;
-  --accent: #f97316;
 }
 
 * {
@@ -28,14 +20,13 @@ body {
   margin: 0;
   font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
   background: radial-gradient(circle at top left, #eef2ff 0%, var(--bg) 40%, #ffffff 100%);
-  background: var(--bg);
   color: var(--text);
+  line-height: 1.5;
 }
 
 .app {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 40px 24px 72px;
   padding: 32px 24px 64px;
 }
 
@@ -44,7 +35,6 @@ body {
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 32px;
   align-items: center;
-  margin-bottom: 48px;
   margin-bottom: 40px;
 }
 
@@ -58,22 +48,16 @@ body {
 }
 
 h1 {
-  font-size: clamp(2.1rem, 2vw + 1.5rem, 3.4rem);
-  margin: 0 0 16px;
-  line-height: 1.05;
-}
-
-h1 {
   font-size: clamp(2rem, 2vw + 1.5rem, 3.2rem);
   margin: 0 0 16px;
+  line-height: 1.05;
 }
 
 .lead {
   font-size: 1.1rem;
   color: var(--muted);
-  margin-bottom: 28px;
-  max-width: 520px;
   margin-bottom: 24px;
+  max-width: 520px;
 }
 
 .hero-actions {
@@ -111,14 +95,10 @@ button.ghost {
 
 .hero-card {
   background: linear-gradient(160deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 24px;
+  border-radius: 20px;
   padding: 24px;
   box-shadow: var(--shadow);
   border: 1px solid rgba(37, 99, 235, 0.12);
-  background: var(--card);
-  border-radius: 20px;
-  padding: 24px;
-  box-shadow: 0 16px 40px rgba(16, 24, 40, 0.08);
 }
 
 .stat {
@@ -162,13 +142,10 @@ main {
 
 .panel {
   background: var(--card);
-  border-radius: 24px;
-  padding: 24px;
-  border: 1px solid var(--border);
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
   border-radius: 20px;
   padding: 24px;
   border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
 }
 
 .panel-header h2 {
@@ -199,6 +176,7 @@ select {
   border: 1px solid var(--border);
   font-size: 0.95rem;
   background: var(--surface);
+  width: 100%;
 }
 
 .history {
@@ -219,10 +197,6 @@ select {
   border-radius: 12px;
   font-size: 0.9rem;
   border: 1px solid var(--border);
-  background: var(--bg);
-  padding: 12px 14px;
-  border-radius: 12px;
-  font-size: 0.9rem;
 }
 
 .milestone-grid {
@@ -248,15 +222,6 @@ select {
 .milestone.completed {
   border-color: rgba(37, 99, 235, 0.35);
   background: rgba(37, 99, 235, 0.1);
-  border-radius: 16px;
-  padding: 16px;
-  background: var(--bg);
-  position: relative;
-}
-
-.milestone.completed {
-  border-color: rgba(31, 122, 236, 0.4);
-  background: rgba(31, 122, 236, 0.1);
 }
 
 .milestone span {
@@ -279,9 +244,6 @@ select {
 
 .tips-grid article {
   background: var(--surface);
-  padding: 16px;
-  border-radius: 18px;
-  background: var(--bg);
   padding: 16px;
   border-radius: 16px;
   border: 1px solid var(--border);
@@ -314,7 +276,6 @@ select {
 
 .chat-log {
   background: var(--surface);
-  background: var(--bg);
   border-radius: 16px;
   padding: 16px;
   min-height: 220px;
@@ -332,7 +293,7 @@ select {
 }
 
 .chat-message.user {
-  background: rgba(31, 122, 236, 0.12);
+  background: rgba(37, 99, 235, 0.12);
   justify-self: flex-end;
 }
 
@@ -355,6 +316,8 @@ select {
 
 .status.is-error {
   color: #dc2626;
+}
+
 .modal {
   position: fixed;
   inset: 0;
@@ -363,7 +326,7 @@ select {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  z-index: 10;
+  z-index: 100;
 }
 
 .modal.is-visible {
@@ -385,6 +348,41 @@ select {
 .modal-card form {
   display: grid;
   gap: 12px;
+}
+
+/* Daily Challenge Specifics */
+.challenge-card {
+  background: linear-gradient(135deg, var(--surface) 0%, #fff 100%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.challenge-card.completed {
+  background: rgba(37, 235, 100, 0.1);
+  border-color: rgba(37, 235, 100, 0.3);
+}
+
+.challenge-header {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  align-items: center;
+}
+
+.challenge-title {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.challenge-meta {
+  font-size: 0.9rem;
+  color: var(--primary);
+  font-weight: 600;
 }
 
 @media (max-width: 720px) {
