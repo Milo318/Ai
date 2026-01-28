@@ -400,3 +400,51 @@ select {
     width: 100%;
   }
 }
+
+/* Daily Challenge */
+#daily-challenge .panel-header {
+  margin-bottom: 24px;
+}
+
+.challenge-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f1f5f9 100%);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.challenge-card h3 {
+  margin: 0 0 12px;
+  font-size: 1.25rem;
+  color: var(--primary);
+}
+
+.challenge-card p {
+  margin: 0 0 24px;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+
+.challenge-card.completed {
+  background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+  border-color: #86efac;
+}
+
+.challenge-card.completed h3 {
+  color: #15803d;
+  text-decoration: line-through;
+}
+
+.challenge-card.completed p {
+  color: #166534;
+}
+
+.challenge-card.completed button {
+  background: #22c55e;
+  pointer-events: none;
+  box-shadow: none;
+}
